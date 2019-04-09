@@ -75,7 +75,7 @@ uint32_t* detail::alloc_chunk()
     profile_local_chunks.push_back(c);
 
     // growth
-    profile_chunk_size *= profile_growth_factor;
+    profile_chunk_size = size_t(profile_chunk_size * profile_growth_factor);
     if (profile_chunk_size > profile_chunk_size_max)
         profile_chunk_size = profile_chunk_size_max;
 

@@ -21,7 +21,7 @@ static std::string beautify_function_name(std::string const &name)
         return name.substr(p + 1); // "void foo" -> "foo"
     }
 
-    int i = p;
+    int i = int(p);
     int db = 0;
     int da = 0;
     int cc = 0;
@@ -89,7 +89,7 @@ void write_speedscope_json(std::string const &filename)
             if (it != frames.end())
                 return it->second;
 
-            auto f = frames.size();
+            auto f = int(frames.size());
             frames[loc] = f;
             locations.push_back(loc);
             return f;
