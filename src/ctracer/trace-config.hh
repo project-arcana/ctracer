@@ -20,9 +20,9 @@ void set_thread_name(std::string const& name);
 /// traces might not have _end if they are still running
 struct visitor
 {
-    virtual void on_thread(std::thread::id thread) {}
-    virtual void on_trace_start(location* loc, uint64_t cycles, uint32_t cpu) {}
-    virtual void on_trace_end(uint64_t cycles, uint32_t cpu) {}
+    virtual void on_thread(std::thread::id /* thread */) {}
+    virtual void on_trace_start(location* /* loc */, uint64_t /* cycles */, uint32_t /* cpu */) {}
+    virtual void on_trace_end(uint64_t /* cycles */, uint32_t /* cpu */) {}
 };
 
 void visit_thread(visitor& v);
