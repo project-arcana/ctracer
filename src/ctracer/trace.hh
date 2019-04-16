@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
-#include <thread>
 
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -24,9 +22,9 @@
  *
  * TODO: low-overhead version without alloc_chunk check (~80 cycles)
  */
-#define TRACE(...)                                                                                                                 \
-    (void)__VA_ARGS__ " has to be a string literal";                                                                               \
-    static ct::location CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__) = {__FILE__, CTRACER_PRETTY_FUNC, "" __VA_ARGS__, __LINE__}; \
+#define TRACE(...)                                                                                                                           \
+    (void)__VA_ARGS__ " has to be a string literal";                                                                                         \
+    static constexpr ct::location CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__) = {__FILE__, CTRACER_PRETTY_FUNC, "" __VA_ARGS__, __LINE__}; \
     ct::detail::raii_tracer CTRACER_MACRO_JOIN(_ct_trace_, __LINE__)(&CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__))
 
 // Implementation:
@@ -62,12 +60,6 @@
 
 namespace ct
 {
-/// sets the size of newly allocated chunks
-/// is a per-thread setting
-void set_thread_chunk_size(size_t size, float growth_factor = 1.6f, size_t max_size = 10 * (1 << 20));
-/// user-defined name for this thread
-void set_thread_name(std::string const& name);
-
 struct location
 {
     char const* file;
@@ -76,21 +68,11 @@ struct location
     int line;
 };
 
-/// visitor base class, call order is:
-/// on_thread
-///   -> nested on_trace_start .. on_trace_end
-/// traces might not have _end if they are still running
-struct visitor
-{
-    virtual void on_thread(std::thread::id thread) {}
-    virtual void on_trace_start(location* loc, uint64_t cycles, uint32_t cpu) {}
-    virtual void on_trace_end(uint64_t cycles, uint32_t cpu) {}
-};
-
-void visit_thread(visitor& v);
-
 #ifdef _WIN32
-inline uint64_t current_cycles() { return __rdtsc(); }
+inline uint64_t current_cycles()
+{
+    return __rdtsc();
+}
 #else //  Linux/GCC
 inline uint64_t current_cycles()
 {
@@ -99,12 +81,6 @@ inline uint64_t current_cycles()
     return ((uint64_t)hi << 32) | lo;
 }
 #endif
-
-/// writes a csv where all trace points are summarized per-location
-void write_summary_csv(std::string const& filename);
-/// Json file for use with https://github.com/jlfwong/speedscope
-/// see https://github.com/jlfwong/speedscope/wiki/Importing-from-custom-sources
-void write_speedscope_json(std::string const& filename = "speedscope.json");
 
 namespace detail
 {
@@ -124,14 +100,14 @@ inline thread_data& tdata()
 
 struct raii_tracer
 {
-    raii_tracer(location* loc)
+    raii_tracer(location const* loc)
     {
         auto pd = tdata().curr;
         if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
             pd = alloc_chunk();
         tdata().curr = pd + 5;
 
-        *(location**)pd = loc;
+        *(location const**)pd = loc;
 
         unsigned int core;
 #ifdef _MSC_VER

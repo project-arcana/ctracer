@@ -1,4 +1,4 @@
-#include "trace.hh"
+#include <ctracer/trace-config.hh>
 
 #include <chrono>
 #include <mutex>
