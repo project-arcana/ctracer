@@ -10,7 +10,7 @@
 
 namespace ct
 {
-static std::string beautify_function_name(std::string const &name)
+static std::string beautify_function_name(std::string const& name)
 {
     auto p = name.rfind(')');
     if (p == std::string::npos) // no (..)
@@ -55,7 +55,7 @@ static std::string beautify_function_name(std::string const &name)
     return name.substr(i + 1);
 }
 
-void write_speedscope_json(std::string const &filename)
+void write_speedscope_json(std::string const& filename)
 {
     std::ofstream out(filename);
     if (!out.good())
@@ -77,32 +77,24 @@ void write_speedscope_json(std::string const &filename)
         uint64_t min_cycles = std::numeric_limits<uint64_t>::max();
         uint64_t max_cycles = 0;
         uint32_t last_cpu = 0;
-        std::unordered_map<location *, int> frames;
-        std::vector<location *> locations;
+        std::unordered_map<location const*, int> frames;
+        std::vector<location const*> locations;
         std::vector<stack_entry> stack;
         std::vector<event> events;
-        std::thread::id thread;
 
-        int frame_of(location *loc)
+        int frame_of(location const& loc)
         {
-            auto it = frames.find(loc);
+            auto it = frames.find(&loc);
             if (it != frames.end())
                 return it->second;
 
             auto f = int(frames.size());
-            frames[loc] = f;
-            locations.push_back(loc);
+            frames[&loc] = f;
+            locations.push_back(&loc);
             return f;
         }
 
-        virtual void on_thread(std::thread::id thread) override
-        {
-            close_pending_actions();
-
-            this->thread = thread;
-            stack.clear();
-        }
-        virtual void on_trace_start(ct::location *loc, uint64_t cycles, uint32_t cpu) override
+        void on_trace_start(ct::location const& loc, uint64_t cycles, uint32_t cpu) override
         {
             last_cpu = cpu;
             min_cycles = std::min(min_cycles, cycles);
@@ -113,7 +105,7 @@ void write_speedscope_json(std::string const &filename)
 
             stack.push_back({f});
         }
-        virtual void on_trace_end(uint64_t cycles, uint32_t cpu) override
+        void on_trace_end(uint64_t cycles, uint32_t cpu) override
         {
             last_cpu = cpu;
             min_cycles = std::min(min_cycles, cycles);
@@ -132,7 +124,7 @@ void write_speedscope_json(std::string const &filename)
         }
     };
     visitor v;
-    ct::visit_thread(v);
+    visit(ct::get_current_thread_trace(), v);
     v.close_pending_actions();
 
     out << "{";
@@ -163,7 +155,7 @@ void write_speedscope_json(std::string const &filename)
     out << "\"endValue\":" << v.max_cycles - v.min_cycles << ",";
     out << "\"events\":[";
     auto first = true;
-    for (auto const &e : v.events)
+    for (auto const& e : v.events)
     {
         if (!first)
             out << ",";
@@ -179,7 +171,7 @@ void write_speedscope_json(std::string const &filename)
     out << "}";
 }
 
-void write_summary_csv(const std::string &filename)
+void write_summary_csv(const std::string& filename)
 {
     std::ofstream out(filename);
     if (!out.good())
@@ -196,31 +188,29 @@ void write_summary_csv(const std::string &filename)
 
     struct stack_entry
     {
-        location *loc;
+        location const* loc;
         uint64_t cycles;
         uint64_t cycles_children;
     };
 
     struct visitor : ct::visitor
     {
-        std::map<location *, entry> entries;
+        std::map<location const*, entry> entries;
         std::vector<stack_entry> stack;
         int depth = 1;
-        std::thread::id thread;
-        virtual void on_thread(std::thread::id thread) override
+
+        virtual void on_trace_start(ct::location const& loc, uint64_t cycles, uint32_t cpu) override
         {
-            this->thread = thread;
-            stack.clear();
-            // TODO: close pending actions
+            //
+            stack.push_back({&loc, cycles, 0});
         }
-        virtual void on_trace_start(ct::location *loc, uint64_t cycles, uint32_t cpu) override { stack.push_back({loc, cycles, 0}); }
         virtual void on_trace_end(uint64_t cycles, uint32_t cpu) override
         {
             auto se = stack.back();
             stack.pop_back();
             auto dt = cycles - se.cycles;
 
-            auto &e = entries[se.loc];
+            auto& e = entries[se.loc];
             e.count++;
             e.cycles_total += dt;
             e.cycles_children += se.cycles_children;
@@ -232,10 +222,10 @@ void write_summary_csv(const std::string &filename)
         }
     };
     visitor v;
-    ct::visit_thread(v);
+    visit(ct::get_current_thread_trace(), v);
 
     out << "name,file,function,count,total,avg,min,max,total_body,avg_body\n";
-    for (auto const &kvp : v.entries)
+    for (auto const& kvp : v.entries)
     {
         auto l = kvp.first;
         auto e = kvp.second;

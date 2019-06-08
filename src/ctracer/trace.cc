@@ -1,127 +1,202 @@
 #include <ctracer/trace-config.hh>
 
+#include "ChunkAllocator.hh"
+#include "chunk.hh"
+#include "detail.hh"
+#include "scope.hh"
+#include "trace-container.hh"
+
+#include <cassert>
 #include <chrono>
+#include <iostream>
+#include <memory>
 #include <mutex>
+#include <sstream>
+#include <thread>
 #include <vector>
+
+using namespace ct;
 
 namespace
 {
-thread_local size_t profile_chunk_size = 1000 * CTRACER_TRACE_SIZE;
-thread_local size_t profile_chunk_size_max = 10 * (1 << 20); // 10 MB
-thread_local float profile_growth_factor = 1.6f;
-
-struct chunk
+struct
 {
-    uint32_t const* data_begin;
-    uint32_t const* data_end;
-    chunk* next_chunk;
+    std::mutex mutex;
+    std::shared_ptr<ChunkAllocator> allocator;
+    std::vector<std::unique_ptr<scope>> finished_threads;
+} _global;
 
-    // TODO: for time sync
-    // std::chrono::steady_clock::time_point creation_time;
-    // uint64_t creation_cycles;
-    // uint32_t creation_cpu;
-};
-
-struct thread_chunks
+thread_local struct thread_info
 {
-    std::thread::id thread;
-    chunk* chunks_start = nullptr;
-    chunk* chunks_end = nullptr;
-};
+    bool is_initialized = false;
+    std::unique_ptr<scope> root_scope;
+    std::vector<scope*> scope_stack;
+    std::vector<detail::thread_data> tdata_stack;
+    scope* current_scope = nullptr;
+    chunk* current_chunk = nullptr;
 
-std::mutex profile_chunks_mutex;
-std::vector<thread_chunks*> profile_threads;
+    ~thread_info()
+    {
+        if (root_scope)
+        {
+            assert(scope_stack.size() == 1 && "only root scope should be alive");
+            assert(tdata_stack.size() == 1 && "only root scope should be alive");
 
-thread_local thread_chunks* profile_local_thread = nullptr;
-thread_local std::vector<chunk*> profile_local_chunks;
-thread_local std::string profile_thread_name;
+            // make sure it's dtor is not called
+            detail::mark_as_orphaned(*root_scope);
+
+            _global.mutex.lock();
+            _global.finished_threads.emplace_back(move(root_scope));
+            _global.mutex.unlock();
+        }
+    }
+} _thread;
+
+void init_thread()
+{
+    if (_thread.is_initialized)
+        return; // already initialized
+    _thread.is_initialized = true;
+
+    _global.mutex.lock();
+    auto alloc = _global.allocator;
+    _global.mutex.unlock();
+
+    std::stringstream ss;
+    ss << std::this_thread::get_id();
+
+    // also pushes the scope
+    _thread.root_scope = std::make_unique<scope>(ss.str(), alloc);
+}
 } // namespace
 
 namespace ct
 {
-void set_thread_chunk_size(size_t size, float growth_factor, size_t max_size)
+void detail::mark_as_orphaned(scope& s)
 {
-    profile_chunk_size = size;
-    profile_growth_factor = growth_factor;
-    profile_chunk_size_max = max_size;
+    s._allocator = nullptr;
+    s._orphaned = true;
 }
 
-void set_thread_name(const std::string& name) { profile_thread_name = name; }
+void detail::push_scope(scope& s)
+{
+    init_thread();
+
+    _thread.scope_stack.push_back(&s);
+    _thread.current_scope = &s;
+
+    // allocate chunk into current scope and change tdata()
+    _thread.tdata_stack.push_back(tdata());
+    _thread.current_chunk = nullptr;
+    alloc_chunk();
+}
+void detail::pop_scope(scope& s)
+{
+    assert(_thread.scope_stack.size() >= 2 && "corrupted scope stack");
+    assert(_thread.scope_stack.back() == &s && "corrupted scope stack");
+    assert(_thread.tdata_stack.size() == _thread.scope_stack.size() && "corrupted tdata stack");
+
+    // ensure correct size
+    update_current_chunk_size();
+
+    // restore current scope and tdata
+    _thread.scope_stack.pop_back();
+    _thread.current_scope = _thread.scope_stack.back();
+    tdata() = _thread.tdata_stack.back();
+    _thread.tdata_stack.pop_back();
+
+    // set current chunk
+    _thread.current_chunk = &_thread.current_scope->_chunks.back();
+}
+void detail::update_current_chunk_size()
+{
+    if (_thread.current_chunk == nullptr)
+        return;
+
+    _thread.current_chunk->_size = tdata().curr - _thread.current_chunk->data();
+    assert(_thread.current_chunk->_size <= _thread.current_chunk->_capacity && "corrupted chunk");
+}
+
+void set_default_allocator(std::shared_ptr<ChunkAllocator> const& allocator)
+{
+    _global.mutex.lock();
+    _global.allocator = allocator ? allocator : ChunkAllocator::global();
+    _global.mutex.unlock();
+}
+
+void set_thread_allocator(std::shared_ptr<ChunkAllocator> const& allocator)
+{
+    init_thread();
+
+    _thread.root_scope->_allocator = allocator ? allocator : ChunkAllocator::global();
+}
+
+void set_thread_name(std::string name)
+{
+    init_thread();
+
+    _thread.root_scope->_name = move(name);
+}
+
+trace get_current_thread_trace()
+{
+    init_thread();
+
+    return _thread.root_scope->trace();
+}
+
+std::vector<trace> get_finished_thread_traces()
+{
+    std::vector<trace> traces;
+    _global.mutex.lock();
+    for (auto const& s : _global.finished_threads)
+        traces.emplace_back(s->trace());
+    _global.mutex.unlock();
+    return traces;
+}
+
+void clear_finished_thread_traces()
+{
+    _global.mutex.lock();
+    _global.finished_threads.clear();
+    _global.mutex.unlock();
+}
 
 uint32_t* detail::alloc_chunk()
 {
-    // register thread
-    if (profile_local_thread == nullptr)
-    {
-        profile_local_thread = new thread_chunks;
-        profile_local_thread->thread = std::this_thread::get_id();
+    // new thread: register it
+    init_thread();
 
-        // LOCKED: add to list of threads
-        profile_chunks_mutex.lock();
-        profile_threads.push_back(profile_local_thread);
-        profile_chunks_mutex.unlock();
-    }
+    // ensure previous chunk has correct size
+    update_current_chunk_size();
 
-    auto data_end = detail::tdata().curr;
+    // allocate and register chunk
+    auto& s = *_thread.current_scope;
+    s._chunks.emplace_back(s._allocator->allocate());
+    auto c = &s._chunks.back();
+    assert(c->data() && "invalid chunk");
+    assert(c->capacity() > 100 + CTRACER_TRACE_SIZE && "chunk too small");
+    _thread.current_chunk = c;
 
-    auto d = new uint32_t[profile_chunk_size + CTRACER_TRACE_SIZE](); // zero-init
-    detail::tdata().curr = d;
-    detail::tdata().end = d + profile_chunk_size;
+    // update tdata()
+    auto& td = tdata();
+    td.curr = c->data();
+    td.end = c->data() + c->capacity() - CTRACER_TRACE_SIZE;
 
-    auto c = new chunk;
-    c->data_begin = d;
-    c->data_end = d + profile_chunk_size + CTRACER_TRACE_SIZE;
-    c->next_chunk = nullptr;
-    profile_local_chunks.push_back(c);
-
-    // growth
-    profile_chunk_size = size_t(profile_chunk_size * profile_growth_factor);
-    if (profile_chunk_size > profile_chunk_size_max)
-        profile_chunk_size = profile_chunk_size_max;
-
-    // LOCKED: add chunk
-    {
-        profile_chunks_mutex.lock();
-
-        // add list of chunks
-        if (profile_local_thread->chunks_end == nullptr)
-        {
-            profile_local_thread->chunks_start = c;
-            profile_local_thread->chunks_end = c;
-        }
-        else
-        {
-            profile_local_thread->chunks_end->data_end = data_end;
-            profile_local_thread->chunks_end->next_chunk = c;
-            profile_local_thread->chunks_end = c;
-        }
-
-        profile_chunks_mutex.unlock();
-    }
-
-    return d;
+    // return curr
+    return td.curr;
 }
 
-void visit_thread(visitor& v)
+void visit(trace const& t, visitor& v)
 {
-    if (profile_local_chunks.empty())
-        return; // DEBUG
-
-    v.on_thread(std::this_thread::get_id());
-
-    auto curr_chunk = 0u;
-    uint32_t const* curr_datum = profile_local_chunks[0]->data_begin;
+    auto idx = 0u;
+    auto const& d = t._data;
 
     // get next word
     auto get = [&]() -> uint32_t {
-        if (curr_datum == profile_local_chunks[curr_chunk]->data_end)
-        {
-            ++curr_chunk;
-            curr_datum = profile_local_chunks[curr_chunk]->data_begin;
-        }
-        auto val = *curr_datum;
-        ++curr_datum;
-        return val;
+        if (idx >= d.size())
+            return 0;
+        return d[idx++];
     };
 
     while (true)
@@ -133,12 +208,12 @@ void visit_thread(visitor& v)
         if (v0 != CTRACER_END_VALUE)
         {
             auto v1 = get();
-            auto loc = (location*)(((uint64_t)v1 << 32uLL) | v0);
+            auto loc = (location const*)(((uint64_t)v1 << 32uLL) | v0);
             auto lo = get();
             auto hi = get();
             auto cpu = get();
             auto cycles = ((uint64_t)hi << 32) | lo;
-            v.on_trace_start(loc, cycles, cpu);
+            v.on_trace_start(*loc, cycles, cpu);
         }
         else
         {

@@ -3,11 +3,11 @@ project(CTracer)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_library(ctracer STATIC 
-    "src/ctracer/trace.cc"
-    "src/ctracer/trace.output.cc"
-    "src/ctracer/trace.hh"
-    "src/ctracer/trace-config.hh"
+file(GLOB_RECURSE SOURCES
+    "src/*.cc"
+    "src/*.hh"
 )
+
+add_library(ctracer STATIC ${SOURCES})
 
 target_include_directories(ctracer PUBLIC "src")

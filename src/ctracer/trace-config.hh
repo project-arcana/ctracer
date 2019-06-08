@@ -1,31 +1,43 @@
 #pragma once
 
+#include <ctracer/ChunkAllocator.hh>
+#include <ctracer/trace-container.hh>
 #include <ctracer/trace.hh>
 
 #include <cstdint>
+#include <memory>
 #include <string>
-#include <thread>
+#include <vector>
 
 namespace ct
 {
-/// sets the size of newly allocated chunks
-/// is a per-thread setting
-void set_thread_chunk_size(size_t size, float growth_factor = 1.6f, size_t max_size = 10 * (1 << 20));
-/// user-defined name for this thread
-void set_thread_name(std::string const& name);
-
 /// visitor base class, call order is:
-/// on_thread
 ///   -> nested on_trace_start .. on_trace_end
 /// traces might not have _end if they are still running
 struct visitor
 {
-    virtual void on_thread(std::thread::id /* thread */) {}
-    virtual void on_trace_start(location* /* loc */, uint64_t /* cycles */, uint32_t /* cpu */) {}
+    virtual void on_trace_start(location const& /* loc */, uint64_t /* cycles */, uint32_t /* cpu */) {}
     virtual void on_trace_end(uint64_t /* cycles */, uint32_t /* cpu */) {}
+
+    virtual ~visitor() = default;
 };
 
-void visit_thread(visitor& v);
+/// sets the default chunk allocator for new threads (nullptr resets to builtin alloc)
+void set_default_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
+/// sets the chunk allocator of the current thread (nullptr resets to builtin alloc)
+void set_thread_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
+/// user-defined name for this thread
+void set_thread_name(std::string name);
+
+/// returns a trace object for the current thread
+trace get_current_thread_trace();
+/// returns a trace objects for all finished threads
+std::vector<trace> get_finished_thread_traces();
+/// frees memory of finished threads
+void clear_finished_thread_traces();
+
+/// calls visitor callbacks for each event in the trace
+void visit(trace const& t, visitor& v);
 
 /// writes a csv where all trace points are summarized per-location
 void write_summary_csv(std::string const& filename);

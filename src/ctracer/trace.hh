@@ -69,10 +69,7 @@ struct location
 };
 
 #ifdef _WIN32
-inline uint64_t current_cycles()
-{
-    return __rdtsc();
-}
+inline uint64_t current_cycles() { return __rdtsc(); }
 #else //  Linux/GCC
 inline uint64_t current_cycles()
 {
@@ -90,6 +87,7 @@ struct thread_data
     uint32_t* end; ///< not actually end, has a CTRACER_TRACE_SIZE buffer at the end
 };
 
+/// allocates a new chunk, returns "curr" and updates tdata()
 CTRACER_COLD CTRACER_NOINLINE uint32_t* alloc_chunk();
 
 inline thread_data& tdata()
