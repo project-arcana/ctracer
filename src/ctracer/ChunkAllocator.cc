@@ -1,10 +1,16 @@
 #include "ChunkAllocator.hh"
 
+#include <atomic>
 #include <cassert>
 
 #include "chunk.hh"
+#include "trace-config.hh"
+
+static std::atomic<size_t> _total_memory = 0;
 
 using namespace ct;
+
+size_t ct::get_total_memory_consumption() { return _total_memory.load(); }
 
 void chunk::allocate(std::shared_ptr<ChunkAllocator> const& allocator)
 {
@@ -29,6 +35,7 @@ uint32_t* ChunkAllocator::alloc_data()
         }
     }
 
+    _total_memory.fetch_add(chunk_size * sizeof(uint32_t));
     return new uint32_t[chunk_size];
 }
 
@@ -42,7 +49,10 @@ void chunk::free()
     if (a) // allocator still valid
         a->free(_data);
     else
+    {
+        _total_memory.fetch_sub(_capacity * sizeof(uint32_t));
         delete[] _data;
+    }
 
     _data = nullptr;
     _size = 0;

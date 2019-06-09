@@ -22,6 +22,9 @@ struct visitor
     virtual ~visitor() = default;
 };
 
+/// returns the total memory consumption of all traced chunks in byte
+size_t get_total_memory_consumption();
+
 /// sets the default chunk allocator for new threads (nullptr resets to builtin alloc)
 void set_default_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
 /// sets the chunk allocator of the current thread (nullptr resets to builtin alloc)
