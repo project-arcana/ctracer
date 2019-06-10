@@ -100,6 +100,16 @@ my_visitor v;
 visit(some_trace, v);
 ```
 
+### Utilities
+
+```cpp
+#include <ctracer/trace.hh>
+
+ct::cycler c;
+do_stuff();
+c.elapsed_cycles(); // returns elapsed cycles from ctor to now
+```
+
 ### Other Configuration
 
 ```cpp

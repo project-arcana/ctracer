@@ -143,6 +143,14 @@ struct raii_tracer
     }
 };
 } // namespace detail
+
+// small utility
+struct cycler
+{
+    uint64_t c_start = ct::current_cycles();
+    uint64_t elapsed_cycles() const { return ct::current_cycles() - c_start; }
+};
+
 } // namespace ct
 
 #undef CTRACER_COLD
