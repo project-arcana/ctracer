@@ -18,6 +18,13 @@ struct event
     bool enter = false;
 };
 
+struct location_stats
+{
+    location const* loc = nullptr;
+    int samples = 0;
+    uint64_t total_cycles = 0;
+};
+
 /// An opaque value type representing a hierarchical call trace of TRACEs.
 /// Not all TRACEs might be closed because traces can be queried in-between
 struct trace
@@ -29,6 +36,8 @@ public:
 
     /// convenience function that visits this trace and converts it into event form
     std::vector<event> compute_events() const;
+    /// convenience function that visits this trace and computes per-location stats
+    std::vector<location_stats> compute_location_stats() const;
 
     time_point time_start() const { return _time_start; }
     time_point time_end() const { return _time_end; }
