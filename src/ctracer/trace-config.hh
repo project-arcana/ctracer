@@ -46,5 +46,5 @@ void visit(trace const& t, visitor& v);
 void write_summary_csv(std::string const& filename);
 /// Json file for use with https://github.com/jlfwong/speedscope
 /// see https://github.com/jlfwong/speedscope/wiki/Importing-from-custom-sources
-void write_speedscope_json(std::string const& filename = "speedscope.json");
+void write_speedscope_json(std::string const& filename = "speedscope.json", size_t max_events = 1'000'000);
 } // namespace ct

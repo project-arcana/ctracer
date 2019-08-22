@@ -55,7 +55,7 @@ static std::string beautify_function_name(std::string const& name)
     return name.substr(i + 1);
 }
 
-void write_speedscope_json(std::string const& filename)
+void write_speedscope_json(std::string const& filename, size_t max_events)
 {
     std::ofstream out(filename);
     if (!out.good())
@@ -126,6 +126,12 @@ void write_speedscope_json(std::string const& filename)
     visitor v;
     visit(ct::get_current_thread_trace(), v);
     v.close_pending_actions();
+
+    if (v.events.size() > max_events)
+    {
+        std::cerr << "Not writing speedscope json, too many events (" << v.events.size() << ")" << std::endl;
+        return;
+    }
 
     out << "{";
     out << "\"version\":\"0.0.1\",";
