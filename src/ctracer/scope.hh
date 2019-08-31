@@ -29,7 +29,7 @@ struct trace;
  *
  *   TRACE(...); // recorded into s
  *
- *   print(s.trace); // show its trace
+ *   print(s.trace()); // show its trace
  */
 struct scope
 {
