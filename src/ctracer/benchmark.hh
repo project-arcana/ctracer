@@ -35,6 +35,23 @@
  *        ct::sink << a + b;
  *     });
  *
+ * How to extend sink and source for custom types:
+ *
+ *     namespace ct
+ *     {
+ *     sink_t operator<<(sink_t s, vec3 v) { return s << v.x << v.y << v.z; }
+ *     }
+ *
+ *     template <>
+ *     struct ct::source<vec3>
+ *     {
+ *         explicit source(vec3 v) : x(v.x), y(v.y), z(v.z) {}
+ *         operator vec3() const { return {x, y, z}; }
+ *
+ *     private:
+ *         source<float> x, y, z;
+ *     };
+ *
  * FIXME: gcc is misbehaving (https://godbolt.org/z/0HR2bL)
  */
 
@@ -43,10 +60,11 @@ namespace ct
 struct sink_t
 {
     template <class T>
-    void operator<<(T v) const
+    sink_t operator<<(T const& v) const
     {
-        static volatile T s;
+        volatile T s;
         s = v;
+        return *this;
     }
 };
 
