@@ -15,9 +15,11 @@
  * Usage:
  *   int foo(int) { ... }
  *   auto res = ct::benchmark(foo, 1);
- *   res.print_stats();
+ *   res.print_summary();
  *
- * How to prevent optimization:
+ *   ct::benchmark([](int a, int b) { return a % b; }, 17, 5);
+ *
+ * How to prevent optimization (manual version):
  *   ct::sink << x; // writes value to volatile var (guaranteed write)
  *   auto const s = ct::source(0.0f);
  *   float x = s; // reads 0.0f from a volatile var (guaranteed read)
