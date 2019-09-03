@@ -107,7 +107,7 @@ benchmark_results benchmark(F&& f, Args... args)
 {
     static_assert(std::is_invocable_v<F, Args...>, "f is not invocable with the provided parameters");
     using R = std::invoke_result_t<F, Args...>;
-    static_assert(std::is_default_constructible_v<R>, "requires default-constructible return type of f");
+    static_assert(std::is_same_v<R, void> || std::is_default_constructible_v<R>, "requires default-constructible return type of f");
 
     auto args_src = std::make_tuple(source<Args>(args)...);
     auto args_in = std::make_tuple(args...);
