@@ -148,7 +148,8 @@ benchmark_results benchmark(F&& f, Args... args)
 
     auto const baseline = [&] {
         args_in = args_src; // read
-        sink << R{};        // write
+        if constexpr (!std::is_same_v<R, void>)
+            sink << R{}; // write
     };
 
     auto const time = [&](auto&& code, int count) -> benchmark_results::timing {
@@ -218,5 +219,4 @@ benchmark_results benchmark(F&& f, Args... args)
 
     return res;
 }
-
 }
