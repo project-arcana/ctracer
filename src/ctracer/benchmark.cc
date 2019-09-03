@@ -50,10 +50,10 @@ void ct::benchmark_results::print_summary(std::string_view prefix) const
 {
     auto const bsps = baseline_seconds_per_sample();
     auto const bcps = baseline_cycles_per_sample();
-    auto const sps_min = seconds_per_sample() - bsps;
-    auto const cps_min = cycles_per_sample() - bcps;
-    auto const sps_max = seconds_per_sample(0.7);
-    auto const cps_max = cycles_per_sample(0.7);
+    auto const sps_min = std::max(0.0, seconds_per_sample() - bsps);
+    auto const cps_min = std::max(0.0, cycles_per_sample() - bcps);
+    auto const sps_max = seconds_per_sample(0.7f);
+    auto const cps_max = cycles_per_sample(0.7f);
     std::cout << prefix << time_str(sps_min) << " .. " << time_str(sps_max) << " / sample, " << cps_min << " .. " << cps_max << " cycles / sample" << std::endl;
 }
 
