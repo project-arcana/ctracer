@@ -68,6 +68,12 @@ struct sink_t
     }
 };
 
+template <class A, class B>
+sink_t operator<<(sink_t s, std::pair<A, B> const& v)
+{
+    return s << v.first << v.second;
+}
+
 static constexpr sink_t sink;
 
 template <class T>
