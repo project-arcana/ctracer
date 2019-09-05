@@ -39,13 +39,13 @@
  *
  *     namespace ct
  *     {
- *     sink_t operator<<(sink_t s, vec3 v) { return s << v.x << v.y << v.z; }
+ *     sink_t operator<<(sink_t s, vec3 const& v) { return s << v.x << v.y << v.z; }
  *     }
  *
  *     template <>
  *     struct ct::source<vec3>
  *     {
- *         explicit source(vec3 v) : x(v.x), y(v.y), z(v.z) {}
+ *         explicit source(vec3 v = {}) : x(v.x), y(v.y), z(v.z) {}
  *         operator vec3() const { return {x, y, z}; }
  *
  *     private:
@@ -74,12 +74,20 @@ sink_t operator<<(sink_t s, std::pair<A, B> const& v)
     return s << v.first << v.second;
 }
 
+template <class T>
+sink_t operator<<(sink_t s, std::vector<T> const& v)
+{
+    for (auto const& x : v)
+        s << x;
+    return s;
+}
+
 static constexpr sink_t sink;
 
 template <class T>
 struct source
 {
-    explicit source(T v) : value(v) {}
+    explicit source(T v = {}) : value(v) {}
     operator T() const { return value; }
 
 private:
@@ -130,14 +138,14 @@ benchmark_results benchmark(F&& f, Args... args)
     auto constexpr medium_run_cnt = 5;
     auto constexpr medium_cluster_cnt = 5;
 
-    auto constexpr short_run_cnt = 10;
-    auto constexpr short_cluster_cnt = 100;
+    auto constexpr short_run_cnt = 15;
+    auto constexpr short_cluster_cnt = 200;
 
-    auto constexpr very_short_run_cnt = 10;
-    auto constexpr very_short_cluster_cnt = 1000;
+    auto constexpr very_short_run_cnt = 30;
+    auto constexpr very_short_cluster_cnt = 3000;
 
-    auto constexpr baseline_run_cnt = 10;
-    auto constexpr baseline_cluster_cnt = 1000;
+    auto constexpr baseline_run_cnt = 30;
+    auto constexpr baseline_cluster_cnt = 3000;
 
     benchmark_results res;
 
