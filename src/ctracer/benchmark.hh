@@ -62,7 +62,7 @@ struct sink_t
     template <class T>
     sink_t operator<<(T const& v) const
     {
-        volatile T s;
+        [[maybe_unused]] volatile T s;
         s = v;
         return *this;
     }
