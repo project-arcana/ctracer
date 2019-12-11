@@ -16,10 +16,6 @@ namespace ct
 {
 class ChunkAllocator;
 struct trace;
-struct null_scope_tag
-{
-};
-
 
 /**
  * An arena for TRACE calls
@@ -65,6 +61,10 @@ struct scope
     uint64_t allocated_bytes() const { return _allocated_bytes; }
 
 protected:
+    struct null_scope_tag
+    {
+    };
+
     scope(null_scope_tag) : scope() { _is_null_scope = true; }
 
 private:
