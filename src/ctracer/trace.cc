@@ -181,7 +181,7 @@ uint32_t* detail::alloc_chunk()
     auto& s = *_thread.current_scope;
 
     chunk* c;
-    if (!s.is_null_scope() || s._chunks.size() == 0)
+    if (!s.is_null_scope() || s._chunks.empty())
     {
         s._chunks.emplace_back(s._allocator->allocate());
         c = &s._chunks.back();
