@@ -51,6 +51,22 @@ struct scope
     /// returns the trace name (either thread name or scope name)
     std::string const& name() const { return _name; }
 
+    bool is_null_scope() const { return _is_null_scope; }
+
+    /// number of bytes after which new allocations will emit a warning
+    void set_alloc_warn_threshold(uint64_t bytes) { _warn_bytes = bytes; }
+    uint64_t alloc_warn_threshold() const { return _warn_bytes; }
+
+    /// number of currently allocated bytes inside this scope, excluding nested scopes
+    uint64_t allocated_bytes() const { return _allocated_bytes; }
+
+protected:
+    struct null_scope_tag
+    {
+    };
+
+    scope(null_scope_tag) : scope() { _is_null_scope = true; }
+
 private:
     std::string _name;
     std::shared_ptr<ChunkAllocator> _allocator;
@@ -58,7 +74,10 @@ private:
 
     time_point _time_start;
     uint64_t _cycles_start;
+    uint64_t _allocated_bytes = 0;
+    uint64_t _warn_bytes = 1 << 30; // 1GiB
 
+    bool _is_null_scope = false;
     bool _orphaned = false;
 
     // TODO: bool if orphaned scope
@@ -69,4 +88,11 @@ private:
     friend void set_thread_name(std::string name);
     friend void set_thread_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
 };
+
+struct null_scope : private scope
+{
+    null_scope() : scope(null_scope_tag{}) {}
+};
+
+
 }

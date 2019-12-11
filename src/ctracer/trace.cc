@@ -131,6 +131,13 @@ void set_thread_allocator(std::shared_ptr<ChunkAllocator> const& allocator)
     _thread.root_scope->_allocator = allocator ? allocator : ChunkAllocator::global();
 }
 
+void set_thread_alloc_warn_threshold(uint64_t bytes)
+{
+    init_thread();
+
+    _thread.root_scope->set_alloc_warn_threshold(bytes);
+}
+
 void set_thread_name(std::string name)
 {
     init_thread();
@@ -172,8 +179,21 @@ uint32_t* detail::alloc_chunk()
 
     // allocate and register chunk
     auto& s = *_thread.current_scope;
-    s._chunks.emplace_back(s._allocator->allocate());
-    auto c = &s._chunks.back();
+
+    chunk* c;
+    if (!s.is_null_scope() || s._chunks.empty())
+    {
+        s._chunks.emplace_back(s._allocator->allocate());
+        c = &s._chunks.back();
+        s._allocated_bytes += c->capacity();
+        if (s.alloc_warn_threshold() < s.allocated_bytes())
+            std::cerr << "[ctracer] Scope allocates more than " << s.alloc_warn_threshold() << " bytes!\n";
+    }
+    else
+    {
+        c = &s._chunks.back();
+    }
+
     assert(c->data() && "invalid chunk");
     assert(c->capacity() > 100 + CTRACER_TRACE_SIZE && "chunk too small");
     _thread.current_chunk = c;

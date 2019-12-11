@@ -31,6 +31,8 @@ void set_default_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
 void set_thread_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
 /// user-defined name for this thread
 void set_thread_name(std::string name);
+/// set the threshhold after which new allocations will trigger a warning
+void set_thread_alloc_warn_threshold(uint64_t bytes);
 
 /// returns a trace object for the current thread
 trace get_current_thread_trace();
