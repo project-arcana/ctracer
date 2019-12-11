@@ -187,7 +187,7 @@ uint32_t* detail::alloc_chunk()
         c = &s._chunks.back();
         s._allocated_bytes += c->capacity();
         if (s.alloc_warn_thresh() < s.allocated_bytes())
-            std::cerr << "Scope allocates more than " << s.alloc_warn_thresh() << " bytes!\n";
+            std::cerr << "[ctracer] Scope allocates more than " << s.alloc_warn_thresh() << " bytes!\n";
     }
     else
     {
