@@ -54,8 +54,8 @@ struct scope
     bool is_null_scope() const { return _is_null_scope; }
 
     /// number of bytes after which new allocations will emit a warning
-    void set_alloc_warn_thresh(uint64_t bytes) { _warn_bytes = bytes; }
-    uint64_t alloc_warn_thresh() const { return _warn_bytes; }
+    void set_alloc_warn_threshold(uint64_t bytes) { _warn_bytes = bytes; }
+    uint64_t alloc_warn_threshold() const { return _warn_bytes; }
 
     /// number of currently allocated bytes inside this scope, excluding nested scopes
     uint64_t allocated_bytes() const { return _allocated_bytes; }

@@ -131,11 +131,11 @@ void set_thread_allocator(std::shared_ptr<ChunkAllocator> const& allocator)
     _thread.root_scope->_allocator = allocator ? allocator : ChunkAllocator::global();
 }
 
-void set_thread_alloc_warn_thresh(uint64_t bytes)
+void set_thread_alloc_warn_threshold(uint64_t bytes)
 {
     init_thread();
 
-    _thread.root_scope->set_alloc_warn_thresh(bytes);
+    _thread.root_scope->set_alloc_warn_threshold(bytes);
 }
 
 void set_thread_name(std::string name)
@@ -186,8 +186,8 @@ uint32_t* detail::alloc_chunk()
         s._chunks.emplace_back(s._allocator->allocate());
         c = &s._chunks.back();
         s._allocated_bytes += c->capacity();
-        if (s.alloc_warn_thresh() < s.allocated_bytes())
-            std::cerr << "[ctracer] Scope allocates more than " << s.alloc_warn_thresh() << " bytes!\n";
+        if (s.alloc_warn_threshold() < s.allocated_bytes())
+            std::cerr << "[ctracer] Scope allocates more than " << s.alloc_warn_threshold() << " bytes!\n";
     }
     else
     {
