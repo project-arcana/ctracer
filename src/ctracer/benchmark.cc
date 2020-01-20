@@ -66,7 +66,7 @@ double ct::benchmark_results::seconds_per_sample(float percentile) const
     auto exp = experiments; // copy
     std::nth_element(exp.begin(), exp.begin() + n, exp.end(), comp_by_seconds);
     auto const t = exp[n];
-    return t.seconds / t.samples;
+    return t.seconds / static_cast<double>(t.samples);
 }
 
 double ct::benchmark_results::cycles_per_sample(float percentile) const
@@ -78,7 +78,7 @@ double ct::benchmark_results::cycles_per_sample(float percentile) const
     auto exp = experiments; // copy
     std::nth_element(exp.begin(), exp.begin() + n, exp.end(), comp_by_cycles);
     auto const t = exp[n];
-    return t.cycles / t.samples;
+    return t.cycles / static_cast<double>(t.samples);
 }
 
 double ct::benchmark_results::baseline_seconds_per_sample() const
