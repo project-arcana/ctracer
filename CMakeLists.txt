@@ -8,6 +8,8 @@ file(GLOB_RECURSE SOURCES
     "src/*.hh"
 )
 
+source_group("${CMAKE_CURRENT_SOURCE_DIR}/src" FILES ${SOURCES})
+
 add_library(ctracer STATIC ${SOURCES})
 
 target_include_directories(ctracer PUBLIC "src")
