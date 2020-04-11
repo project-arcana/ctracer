@@ -9,7 +9,8 @@ namespace ct
 {
 class ChunkAllocator;
 
-namespace detail {
+namespace detail
+{
 void update_current_chunk_size();
 }
 
