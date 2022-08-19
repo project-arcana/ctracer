@@ -69,9 +69,9 @@ struct location
 };
 
 #ifdef _WIN32
-inline uint64_t current_cycles() { return __rdtsc(); }
+CTRACER_FORCEINLINE inline uint64_t current_cycles() { return __rdtsc(); }
 #else //  Linux/GCC
-inline uint64_t current_cycles()
+CTRACER_FORCEINLINE inline uint64_t current_cycles()
 {
     unsigned int lo, hi;
     __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
@@ -90,7 +90,7 @@ struct thread_data
 /// allocates a new chunk, returns "curr" and updates tdata()
 CTRACER_COLD CTRACER_NOINLINE uint32_t* alloc_chunk();
 
-inline thread_data& tdata()
+CTRACER_FORCEINLINE inline thread_data& tdata()
 {
     static thread_local thread_data data = {nullptr, nullptr};
     return data;
@@ -98,7 +98,7 @@ inline thread_data& tdata()
 
 struct raii_tracer
 {
-    raii_tracer(location const* loc)
+    CTRACER_FORCEINLINE raii_tracer(location const* loc)
     {
         auto pd = tdata().curr;
         if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
@@ -120,7 +120,7 @@ struct raii_tracer
         pd[4] = core;
     }
 
-    ~raii_tracer()
+    CTRACER_FORCEINLINE ~raii_tracer()
     {
         auto pd = tdata().curr;
         if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
@@ -148,7 +148,7 @@ struct raii_tracer
 struct cycler
 {
     uint64_t c_start = ct::current_cycles();
-    uint64_t elapsed_cycles() const { return ct::current_cycles() - c_start; }
+    CTRACER_FORCEINLINE uint64_t elapsed_cycles() const { return ct::current_cycles() - c_start; }
 };
 
 } // namespace ct
