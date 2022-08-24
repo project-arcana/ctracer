@@ -205,12 +205,12 @@ void write_summary_csv(const std::string& filename)
         std::vector<stack_entry> stack;
         int depth = 1;
 
-        virtual void on_trace_start(ct::location const& loc, uint64_t cycles, uint32_t cpu) override
+        virtual void on_trace_start(ct::location const& loc, uint64_t cycles, uint32_t /*cpu*/) override
         {
             //
             stack.push_back({&loc, cycles, 0});
         }
-        virtual void on_trace_end(uint64_t cycles, uint32_t cpu) override
+        virtual void on_trace_end(uint64_t cycles, uint32_t /*cpu*/) override
         {
             auto se = stack.back();
             stack.pop_back();
@@ -246,6 +246,25 @@ void write_summary_csv(const std::string& filename)
         out << e.cycles_total - e.cycles_children << ",";
         out << (e.cycles_total - e.cycles_children) / e.count;
         out << "\n";
+    }
+}
+
+void print_location_stats(trace const& t, int max_locs)
+{
+    auto locs = t.compute_location_stats();
+    std::sort(locs.begin(), locs.end(), [](location_stats const& a, location_stats const& b) { return a.total_cycles > b.total_cycles; });
+
+    if (int(locs.size()) < max_locs)
+        max_locs = int(locs.size());
+
+    for (auto i = 0; i < max_locs; ++i)
+    {
+        auto const& l = locs[i];
+
+        auto name = std::string(l.loc->name ? l.loc->name : "");
+        if (name.empty())
+            name = beautify_function_name(l.loc->function);
+        std::cout << l.total_cycles << " cc (" << l.samples << "x, " << l.total_cycles / l.samples << " cc / sample) " << name << std::endl;
     }
 }
 } // namespace ct

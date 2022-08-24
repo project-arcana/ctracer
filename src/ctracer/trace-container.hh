@@ -46,6 +46,8 @@ public:
     float elapsed_seconds() const { return std::chrono::duration<float>(_time_end - _time_start).count(); }
     uint64_t elapsed_cycles() const { return _cycles_end - _cycles_start; }
 
+    trace() = default;
+
 private:
     explicit trace(std::string name, std::vector<uint32_t> data, time_point time_start, time_point time_end, uint64_t cycles_start, uint64_t cycles_end);
 

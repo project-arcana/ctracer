@@ -49,4 +49,8 @@ void write_summary_csv(std::string const& filename);
 /// Json file for use with https://github.com/jlfwong/speedscope
 /// see https://github.com/jlfwong/speedscope/wiki/Importing-from-custom-sources
 void write_speedscope_json(std::string const& filename = "speedscope.json", size_t max_events = 1'000'000);
+
+/// prints summary statistics of locations, sorted by time
+/// NOTE: currently misleading for recursive locations
+void print_location_stats(trace const& t, int max_locs = 10);
 } // namespace ct

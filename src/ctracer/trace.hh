@@ -21,11 +21,26 @@
  * Overhead: ~70-105 cycles
  *
  * TODO: low-overhead version without alloc_chunk check (~80 cycles)
+ *
+ * Explicit non-scope version:
+ *    TRACE_BEGIN("some optional name");
+ *    ... code ...
+ *    TRACE_END();
+ *
+ *    NOTE: proper nesting must be respected
  */
 #define TRACE(...)                                                                                                                           \
     (void)__VA_ARGS__ " has to be a string literal";                                                                                         \
     static constexpr ct::location CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__) = {__FILE__, CTRACER_PRETTY_FUNC, "" __VA_ARGS__, __LINE__}; \
     ct::detail::raii_tracer CTRACER_MACRO_JOIN(_ct_trace_, __LINE__)(&CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__))
+
+#define TRACE_BEGIN(...)                                                                                                                     \
+    (void)__VA_ARGS__ " has to be a string literal";                                                                                         \
+    static constexpr ct::location CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__) = {__FILE__, CTRACER_PRETTY_FUNC, "" __VA_ARGS__, __LINE__}; \
+    ct::detail::trace_begin(&CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__))
+
+#define TRACE_END() ct::detail::trace_end()
+
 
 // Implementation:
 
@@ -96,51 +111,54 @@ CTRACER_FORCEINLINE inline thread_data& tdata()
     return data;
 }
 
+CTRACER_FORCEINLINE inline void trace_begin(location const* loc)
+{
+    auto pd = tdata().curr;
+    if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
+        pd = alloc_chunk();
+    tdata().curr = pd + 5;
+
+    *(location const**)pd = loc;
+
+    unsigned int core;
+#ifdef _MSC_VER
+    int64_t cc = __rdtscp(&core);
+    *(int64_t*)(pd + 2) = cc;
+#else
+    unsigned int lo, hi;
+    __asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi), "=c"(core));
+    pd[2] = lo;
+    pd[3] = hi;
+#endif
+    pd[4] = core;
+}
+
+CTRACER_FORCEINLINE inline void trace_end()
+{
+    auto pd = tdata().curr;
+    if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
+        pd = alloc_chunk();
+    tdata().curr = pd + 4;
+
+    unsigned int core;
+#ifdef _MSC_VER
+    int64_t cc = __rdtscp(&core);
+    pd[0] = CTRACER_END_VALUE;
+    *(int64_t*)(pd + 1) = cc;
+#else
+    unsigned int lo, hi;
+    __asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi), "=c"(core));
+    pd[0] = CTRACER_END_VALUE;
+    pd[1] = lo;
+    pd[2] = hi;
+#endif
+    pd[3] = core;
+}
+
 struct raii_tracer
 {
-    CTRACER_FORCEINLINE raii_tracer(location const* loc)
-    {
-        auto pd = tdata().curr;
-        if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
-            pd = alloc_chunk();
-        tdata().curr = pd + 5;
-
-        *(location const**)pd = loc;
-
-        unsigned int core;
-#ifdef _MSC_VER
-        int64_t cc = __rdtscp(&core);
-        *(int64_t*)(pd + 2) = cc;
-#else
-        unsigned int lo, hi;
-        __asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi), "=c"(core));
-        pd[2] = lo;
-        pd[3] = hi;
-#endif
-        pd[4] = core;
-    }
-
-    CTRACER_FORCEINLINE ~raii_tracer()
-    {
-        auto pd = tdata().curr;
-        if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
-            pd = alloc_chunk();
-        tdata().curr = pd + 4;
-
-        unsigned int core;
-#ifdef _MSC_VER
-        int64_t cc = __rdtscp(&core);
-        pd[0] = CTRACER_END_VALUE;
-        *(int64_t*)(pd + 1) = cc;
-#else
-        unsigned int lo, hi;
-        __asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi), "=c"(core));
-        pd[0] = CTRACER_END_VALUE;
-        pd[1] = lo;
-        pd[2] = hi;
-#endif
-        pd[3] = core;
-    }
+    CTRACER_FORCEINLINE raii_tracer(location const* loc) { trace_begin(loc); }
+    CTRACER_FORCEINLINE ~raii_tracer() { trace_end(); }
 };
 } // namespace detail
 
