@@ -4,10 +4,11 @@
 #include <ctracer/trace-container.hh>
 #include <ctracer/trace.hh>
 
+#include <clean-core/string.hh>
+#include <clean-core/vector.hh>
+
 #include <cstdint>
 #include <memory>
-#include <string>
-#include <vector>
 
 namespace ct
 {
@@ -30,14 +31,14 @@ void set_default_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
 /// sets the chunk allocator of the current thread (nullptr resets to builtin alloc)
 void set_thread_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
 /// user-defined name for this thread
-void set_thread_name(std::string name);
+void set_thread_name(cc::string name);
 /// set the threshhold after which new allocations will trigger a warning
 void set_thread_alloc_warn_threshold(uint64_t bytes);
 
 /// returns a trace object for the current thread
 trace get_current_thread_trace();
 /// returns a trace objects for all finished threads
-std::vector<trace> get_finished_thread_traces();
+cc::vector<trace> get_finished_thread_traces();
 /// frees memory of finished threads
 void clear_finished_thread_traces();
 
@@ -45,10 +46,10 @@ void clear_finished_thread_traces();
 void visit(trace const& t, visitor& v);
 
 /// writes a csv where all trace points are summarized per-location
-void write_summary_csv(std::string const& filename);
+void write_summary_csv(cc::string_view filename);
 /// Json file for use with https://github.com/jlfwong/speedscope
 /// see https://github.com/jlfwong/speedscope/wiki/Importing-from-custom-sources
-void write_speedscope_json(std::string const& filename = "speedscope.json", size_t max_events = 1'000'000);
+void write_speedscope_json(cc::string_view filename = "speedscope.json", size_t max_events = 1'000'000);
 
 /// prints summary statistics of locations, sorted by time
 /// NOTE: currently misleading for recursive locations

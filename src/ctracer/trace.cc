@@ -6,7 +6,8 @@
 #include "scope.hh"
 #include "trace-container.hh"
 
-#include <cassert>
+#include <clean-core/assert.hh>
+
 #include <chrono>
 #include <iostream>
 #include <memory>
@@ -23,15 +24,15 @@ struct
 {
     std::mutex mutex;
     std::shared_ptr<ChunkAllocator> allocator;
-    std::vector<std::unique_ptr<scope>> finished_threads;
+    cc::vector<std::unique_ptr<scope>> finished_threads;
 } _global;
 
 thread_local struct thread_info
 {
     bool is_initialized = false;
     std::unique_ptr<scope> root_scope;
-    std::vector<scope*> scope_stack;
-    std::vector<detail::thread_data> tdata_stack;
+    cc::vector<scope*> scope_stack;
+    cc::vector<detail::thread_data> tdata_stack;
     scope* current_scope = nullptr;
     chunk* current_chunk = nullptr;
 
@@ -39,8 +40,8 @@ thread_local struct thread_info
     {
         if (root_scope)
         {
-            assert(scope_stack.size() == 1 && "only root scope should be alive");
-            assert(tdata_stack.size() == 1 && "only root scope should be alive");
+            CC_ASSERT(scope_stack.size() == 1 && "only root scope should be alive");
+            CC_ASSERT(tdata_stack.size() == 1 && "only root scope should be alive");
 
             // make sure it's dtor is not called
             detail::mark_as_orphaned(*root_scope);
@@ -66,7 +67,7 @@ void init_thread()
     ss << std::this_thread::get_id();
 
     // also pushes the scope
-    _thread.root_scope = std::make_unique<scope>(ss.str(), alloc);
+    _thread.root_scope = std::make_unique<scope>(ss.str().c_str(), alloc);
 }
 } // namespace
 
@@ -92,9 +93,9 @@ void detail::push_scope(scope& s)
 }
 void detail::pop_scope(scope& s)
 {
-    assert(_thread.scope_stack.size() >= 2 && "corrupted scope stack");
-    assert(_thread.scope_stack.back() == &s && "corrupted scope stack");
-    assert(_thread.tdata_stack.size() == _thread.scope_stack.size() && "corrupted tdata stack");
+    CC_ASSERT(_thread.scope_stack.size() >= 2 && "corrupted scope stack");
+    CC_ASSERT(_thread.scope_stack.back() == &s && "corrupted scope stack");
+    CC_ASSERT(_thread.tdata_stack.size() == _thread.scope_stack.size() && "corrupted tdata stack");
 
     // ensure correct size
     update_current_chunk_size();
@@ -114,7 +115,7 @@ void detail::update_current_chunk_size()
         return;
 
     _thread.current_chunk->_size = tdata().curr - _thread.current_chunk->data();
-    assert(_thread.current_chunk->_size <= _thread.current_chunk->_capacity && "corrupted chunk");
+    CC_ASSERT(_thread.current_chunk->_size <= _thread.current_chunk->_capacity && "corrupted chunk");
 }
 
 void set_default_allocator(std::shared_ptr<ChunkAllocator> const& allocator)
@@ -138,11 +139,11 @@ void set_thread_alloc_warn_threshold(uint64_t bytes)
     _thread.root_scope->set_alloc_warn_threshold(bytes);
 }
 
-void set_thread_name(std::string name)
+void set_thread_name(cc::string name)
 {
     init_thread();
 
-    _thread.root_scope->_name = move(name);
+    _thread.root_scope->_name = cc::move(name);
 }
 
 trace get_current_thread_trace()
@@ -152,9 +153,9 @@ trace get_current_thread_trace()
     return _thread.root_scope->trace();
 }
 
-std::vector<trace> get_finished_thread_traces()
+cc::vector<trace> get_finished_thread_traces()
 {
-    std::vector<trace> traces;
+    cc::vector<trace> traces;
     _global.mutex.lock();
     for (auto const& s : _global.finished_threads)
         traces.emplace_back(s->trace());
@@ -194,8 +195,8 @@ uint32_t* detail::alloc_chunk()
         c = &s._chunks.back();
     }
 
-    assert(c->data() && "invalid chunk");
-    assert(c->capacity() > 100 + CTRACER_TRACE_SIZE && "chunk too small");
+    CC_ASSERT(c->data() && "invalid chunk");
+    CC_ASSERT(c->capacity() > 100 + CTRACER_TRACE_SIZE && "chunk too small");
     _thread.current_chunk = c;
 
     // update tdata()

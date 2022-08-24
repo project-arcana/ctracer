@@ -2,8 +2,9 @@
 
 #include <chrono>
 #include <memory>
-#include <string>
-#include <vector>
+
+#include <clean-core/vector.hh>
+#include <clean-core/string.hh>
 
 #include "chunk.hh"
 #include "detail.hh"
@@ -36,7 +37,7 @@ struct scope
     using time_point = std::chrono::high_resolution_clock::time_point;
 
     /// creates a new scope and optionally specifies a custom allocator
-    scope(std::string name = "", std::shared_ptr<ChunkAllocator> const& allocator = nullptr);
+    scope(cc::string name = "", std::shared_ptr<ChunkAllocator> const& allocator = nullptr);
     ~scope();
 
     // raii type
@@ -49,7 +50,7 @@ struct scope
     ct::trace trace() const;
 
     /// returns the trace name (either thread name or scope name)
-    std::string const& name() const { return _name; }
+    cc::string const& name() const { return _name; }
 
     bool is_null_scope() const { return _is_null_scope; }
 
@@ -68,9 +69,9 @@ protected:
     scope(null_scope_tag) : scope() { _is_null_scope = true; }
 
 private:
-    std::string _name;
+    cc::string _name;
     std::shared_ptr<ChunkAllocator> _allocator;
-    std::vector<chunk> _chunks;
+    cc::vector<chunk> _chunks;
 
     time_point _time_start;
     uint64_t _cycles_start;
@@ -85,7 +86,7 @@ private:
     friend uint32_t* detail::alloc_chunk();
     friend void detail::mark_as_orphaned(scope& s);
     friend void detail::pop_scope(scope&);
-    friend void set_thread_name(std::string name);
+    friend void set_thread_name(cc::string name);
     friend void set_thread_allocator(std::shared_ptr<ChunkAllocator> const& allocator);
 };
 

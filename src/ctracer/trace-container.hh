@@ -2,8 +2,10 @@
 
 #include <chrono>
 #include <cstdint>
-#include <string>
-#include <vector>
+
+#include <clean-core/function_ref.hh>
+#include <clean-core/string.hh>
+#include <clean-core/vector.hh>
 
 namespace ct
 {
@@ -32,12 +34,12 @@ struct trace
 public:
     using time_point = std::chrono::high_resolution_clock::time_point;
 
-    std::string const& name() const { return _name; }
+    cc::string const& name() const { return _name; }
 
     /// convenience function that visits this trace and converts it into event form
-    std::vector<event> compute_events() const;
+    cc::vector<event> compute_events() const;
     /// convenience function that visits this trace and computes per-location stats
-    std::vector<location_stats> compute_location_stats() const;
+    cc::vector<location_stats> compute_location_stats() const;
 
     time_point time_start() const { return _time_start; }
     time_point time_end() const { return _time_end; }
@@ -46,14 +48,20 @@ public:
     float elapsed_seconds() const { return std::chrono::duration<float>(_time_end - _time_start).count(); }
     uint64_t elapsed_cycles() const { return _cycles_end - _cycles_start; }
 
+    // builder
+public:
     trace() = default;
+    trace(cc::string name, cc::vector<uint32_t> data, time_point time_start, time_point time_end, uint64_t cycles_start, uint64_t cycles_end);
+
+    void add_start(location const& loc, uint64_t cycles, uint32_t cpu);
+    void add_end(uint64_t cycles, uint32_t cpu);
 
 private:
-    explicit trace(std::string name, std::vector<uint32_t> data, time_point time_start, time_point time_end, uint64_t cycles_start, uint64_t cycles_end);
+    cc::string _name;
+    cc::vector<uint32_t> _data;
 
-    std::string _name;
-    std::vector<uint32_t> _data;
-
+    // timing of the whole trace
+    // time points can be used to calibrate cycles <-> seconds
     time_point _time_start;
     time_point _time_end;
     uint64_t _cycles_start;
@@ -62,4 +70,10 @@ private:
     friend struct scope;
     friend void visit(trace const& t, visitor& v);
 };
+
+/// retruns a filtered version of the given trace
+/// the new trace only contains samples where predicate was true for the sample or any parent
+/// (e.g. useful to restrict to subscopes)
+/// NOTE: time/cycles start/end is the same as input
+trace filter_subscope(trace const& t, cc::function_ref<bool(location const&)> predicate);
 }

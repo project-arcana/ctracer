@@ -1,5 +1,6 @@
 #include "benchmark.hh"
 
+// TODO: remove me in some future cleanup
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -26,27 +27,28 @@ static std::string time_str(double s)
 static bool comp_by_seconds(ct::benchmark_results::timing const& a, ct::benchmark_results::timing const& b) { return a.seconds < b.seconds; }
 static bool comp_by_cycles(ct::benchmark_results::timing const& a, ct::benchmark_results::timing const& b) { return a.cycles < b.cycles; }
 
-void ct::benchmark_results::print_all(std::string_view prefix) const
+void ct::benchmark_results::print_all(cc::string_view prefix) const
 {
-    auto const print = [&](timing const& t) {
-        std::cout << prefix << "  " << t.cycles << " cycles, " << time_str(t.seconds) << ", " << t.samples << " sample(s)" << std::endl;
-    };
+    auto s_prefix = std::string(cc::string(prefix).c_str());
 
-    std::cout << prefix << "experiments:" << std::endl;
+    auto const print = [&](timing const& t)
+    { std::cout << s_prefix << "  " << t.cycles << " cycles, " << time_str(t.seconds) << ", " << t.samples << " sample(s)" << std::endl; };
+
+    std::cout << s_prefix << "experiments:" << std::endl;
     for (auto const& t : experiments)
         print(t);
-    std::cout << prefix << "warmup:" << std::endl;
+    std::cout << s_prefix << "warmup:" << std::endl;
     for (auto const& t : warmups)
         print(t);
     if (!baselines.empty())
     {
-        std::cout << prefix << "baseline:" << std::endl;
+        std::cout << s_prefix << "baseline:" << std::endl;
         for (auto const& t : baselines)
             print(t);
     }
 }
 
-void ct::benchmark_results::print_summary(std::string_view prefix) const
+void ct::benchmark_results::print_summary(cc::string_view prefix) const
 {
     auto const bsps = baseline_seconds_per_sample();
     auto const bcps = baseline_cycles_per_sample();
@@ -54,7 +56,8 @@ void ct::benchmark_results::print_summary(std::string_view prefix) const
     auto const cps_min = std::max(0.0, cycles_per_sample() - bcps);
     auto const sps_max = seconds_per_sample(0.7f);
     auto const cps_max = cycles_per_sample(0.7f);
-    std::cout << prefix << time_str(sps_min) << " .. " << time_str(sps_max) << " / sample, " << cps_min << " .. " << cps_max << " cycles / sample" << std::endl;
+    std::cout << cc::string(prefix).c_str() << time_str(sps_min) << " .. " << time_str(sps_max) << " / sample, " << cps_min << " .. " << cps_max
+              << " cycles / sample" << std::endl;
 }
 
 double ct::benchmark_results::seconds_per_sample(float percentile) const

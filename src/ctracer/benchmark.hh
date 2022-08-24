@@ -2,10 +2,14 @@
 
 #include <chrono>
 #include <limits>
-#include <string_view>
-#include <tuple>
 #include <type_traits>
-#include <vector>
+
+#include <clean-core/is_range.hh>
+#include <clean-core/string.hh>
+#include <clean-core/vector.hh>
+
+// TODO: replace by cc once tuple conversion is added
+#include <tuple>
 
 #include "trace.hh"
 
@@ -62,25 +66,19 @@ struct sink_t
     template <class T>
     sink_t operator<<(T const& v) const
     {
-        [[maybe_unused]] volatile T s;
-        s = v;
-        return *this;
+        if constexpr (cc::is_any_range<T>)
+        {
+            for (auto const& e : v)
+                *this << e;
+        }
+        else
+        {
+            [[maybe_unused]] volatile T s;
+            s = v;
+            return *this;
+        }
     }
 };
-
-template <class A, class B>
-sink_t operator<<(sink_t s, std::pair<A, B> const& v)
-{
-    return s << v.first << v.second;
-}
-
-template <class T>
-sink_t operator<<(sink_t s, std::vector<T> const& v)
-{
-    for (auto const& x : v)
-        s << x;
-    return s;
-}
 
 static constexpr sink_t sink;
 
@@ -103,12 +101,12 @@ struct benchmark_results
         double seconds = 0;
     };
 
-    std::vector<timing> experiments;
-    std::vector<timing> warmups;
-    std::vector<timing> baselines;
+    cc::vector<timing> experiments;
+    cc::vector<timing> warmups;
+    cc::vector<timing> baselines;
 
-    void print_all(std::string_view prefix = "") const;
-    void print_summary(std::string_view prefix = "") const;
+    void print_all(cc::string_view prefix = "") const;
+    void print_summary(cc::string_view prefix = "") const;
 
     double seconds_per_sample(float percentile = 0.0f) const;
     double cycles_per_sample(float percentile = 0.0f) const;
@@ -123,8 +121,8 @@ benchmark_results benchmark(F&& f, Args... args)
     using R = std::invoke_result_t<F, Args...>;
     static_assert(std::is_same_v<R, void> || std::is_default_constructible_v<R>, "requires default-constructible return type of f");
 
-    auto args_src = std::make_tuple(source<Args>(args)...);
-    auto args_in = std::make_tuple(args...);
+    auto args_src = std::tuple{source<Args>(args)...};
+    auto args_in = std::tuple{args...};
 
     auto constexpr initial_check_cnt = 3;
     auto constexpr extra_long_cycles = 100'000'000; // above this only initial check is executed
@@ -149,7 +147,8 @@ benchmark_results benchmark(F&& f, Args... args)
 
     benchmark_results res;
 
-    auto const execute = [&] {
+    auto const execute = [&]
+    {
         // read inputs from sources
         args_in = args_src;
 
@@ -160,13 +159,15 @@ benchmark_results benchmark(F&& f, Args... args)
             sink << std::apply(f, args_in);
     };
 
-    auto const baseline = [&] {
+    auto const baseline = [&]
+    {
         args_in = args_src; // read
         if constexpr (!std::is_same_v<R, void>)
             sink << R{}; // write
     };
 
-    auto const time = [&](auto&& code, int count) -> benchmark_results::timing {
+    auto const time = [&](auto&& code, int count) -> benchmark_results::timing
+    {
         auto t_start = std::chrono::high_resolution_clock::now();
         auto c_start = ct::current_cycles();
         for (auto i = 0; i < count; ++i)

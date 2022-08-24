@@ -4,7 +4,8 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <vector>
+
+#include <clean-core/vector.hh>
 
 namespace ct
 {
@@ -37,7 +38,7 @@ private:
 private:
     size_t chunk_size;
     std::mutex mutex;
-    std::vector<std::unique_ptr<uint32_t[]>> free_list;
+    cc::vector<std::unique_ptr<uint32_t[]>> free_list;
 
     friend struct chunk;
 };

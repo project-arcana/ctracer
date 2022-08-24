@@ -55,9 +55,9 @@ static std::string beautify_function_name(std::string const& name)
     return name.substr(i + 1);
 }
 
-void write_speedscope_json(std::string const& filename, size_t max_events)
+void write_speedscope_json(cc::string_view filename, size_t max_events)
 {
-    std::ofstream out(filename);
+    std::ofstream out(cc::string(filename).c_str());
     if (!out.good())
         return;
 
@@ -177,9 +177,9 @@ void write_speedscope_json(std::string const& filename, size_t max_events)
     out << "}";
 }
 
-void write_summary_csv(const std::string& filename)
+void write_summary_csv(cc::string_view filename)
 {
-    std::ofstream out(filename);
+    std::ofstream out(cc::string(filename).c_str());
     if (!out.good())
         return;
 

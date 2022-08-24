@@ -8,8 +8,8 @@
 
 using namespace ct;
 
-scope::scope(std::string name, std::shared_ptr<ChunkAllocator> const& allocator)
-  : _name(move(name)), _allocator(allocator ? allocator : ChunkAllocator::global())
+scope::scope(cc::string name, std::shared_ptr<ChunkAllocator> const& allocator)
+  : _name(cc::move(name)), _allocator(allocator ? allocator : ChunkAllocator::global())
 {
     // after this call all TRACE(...)s are directed into this scope
     ct::detail::push_scope(*this);
@@ -39,7 +39,7 @@ ct::trace scope::trace() const
         cnt += c.size();
 
     // copy trace into preallocated data
-    std::vector<uint32_t> data;
+    cc::vector<uint32_t> data;
     data.resize(cnt);
     size_t idx = 0;
     for (auto const& c : _chunks)

@@ -22,3 +22,7 @@ endif()
 add_library(ctracer STATIC ${SOURCES})
 
 target_include_directories(ctracer PUBLIC "src")
+
+target_link_libraries(ctracer PUBLIC
+    clean-core
+)

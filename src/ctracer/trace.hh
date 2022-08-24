@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include <clean-core/macros.hh>
+
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
@@ -29,15 +31,15 @@
  *
  *    NOTE: proper nesting must be respected
  */
-#define TRACE(...)                                                                                                                           \
-    (void)__VA_ARGS__ " has to be a string literal";                                                                                         \
-    static constexpr ct::location CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__) = {__FILE__, CTRACER_PRETTY_FUNC, "" __VA_ARGS__, __LINE__}; \
-    ct::detail::raii_tracer CTRACER_MACRO_JOIN(_ct_trace_, __LINE__)(&CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__))
+#define TRACE(...)                                                                                                                 \
+    (void)__VA_ARGS__ " has to be a string literal";                                                                               \
+    static constexpr ct::location CC_MACRO_JOIN(_ct_trace_label, __LINE__) = {__FILE__, CC_PRETTY_FUNC, "" __VA_ARGS__, __LINE__}; \
+    ct::detail::raii_tracer CC_MACRO_JOIN(_ct_trace_, __LINE__)(&CC_MACRO_JOIN(_ct_trace_label, __LINE__))
 
-#define TRACE_BEGIN(...)                                                                                                                     \
-    (void)__VA_ARGS__ " has to be a string literal";                                                                                         \
-    static constexpr ct::location CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__) = {__FILE__, CTRACER_PRETTY_FUNC, "" __VA_ARGS__, __LINE__}; \
-    ct::detail::trace_begin(&CTRACER_MACRO_JOIN(_ct_trace_label, __LINE__))
+#define TRACE_BEGIN(...)                                                                                                           \
+    (void)__VA_ARGS__ " has to be a string literal";                                                                               \
+    static constexpr ct::location CC_MACRO_JOIN(_ct_trace_label, __LINE__) = {__FILE__, CC_PRETTY_FUNC, "" __VA_ARGS__, __LINE__}; \
+    ct::detail::trace_begin(&CC_MACRO_JOIN(_ct_trace_label, __LINE__))
 
 #define TRACE_END() ct::detail::trace_end()
 
@@ -45,33 +47,7 @@
 // Implementation:
 
 #define CTRACER_TRACE_SIZE 9
-#define CTRACER_LABEL_MASK 0x80000000
 #define CTRACER_END_VALUE 0xFFFFFFFF
-
-#define CTRACER_MACRO_JOIN_IMPL(arg1, arg2) arg1##arg2
-#define CTRACER_MACRO_JOIN(arg1, arg2) CTRACER_MACRO_JOIN_IMPL(arg1, arg2)
-
-#ifndef _MSC_VER
-
-#define CTRACER_FORCEINLINE __attribute__((always_inline))
-#define CTRACER_NOINLINE __attribute__((noinline))
-#define CTRACER_PRETTY_FUNC __PRETTY_FUNCTION__
-
-#define CTRACER_LIKELY(x) __builtin_expect((x), 1)
-#define CTRACER_UNLIKELY(x) __builtin_expect((x), 0)
-#define CTRACER_COLD __attribute__((cold))
-
-#else
-
-#define CTRACER_FORCEINLINE __forceinline
-#define CTRACER_NOINLINE __declspec(noinline)
-#define CTRACER_PRETTY_FUNC __FUNCTION__
-
-#define CTRACER_LIKELY(x) x
-#define CTRACER_UNLIKELY(x) x
-#define CTRACER_COLD
-
-#endif
 
 namespace ct
 {
@@ -84,9 +60,9 @@ struct location
 };
 
 #ifdef _WIN32
-CTRACER_FORCEINLINE inline uint64_t current_cycles() { return __rdtsc(); }
+CC_FORCE_INLINE uint64_t current_cycles() { return __rdtsc(); }
 #else //  Linux/GCC
-CTRACER_FORCEINLINE inline uint64_t current_cycles()
+CC_FORCE_INLINE uint64_t current_cycles()
 {
     unsigned int lo, hi;
     __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
@@ -103,18 +79,18 @@ struct thread_data
 };
 
 /// allocates a new chunk, returns "curr" and updates tdata()
-CTRACER_COLD CTRACER_NOINLINE uint32_t* alloc_chunk();
+CC_COLD_FUNC CC_DONT_INLINE uint32_t* alloc_chunk();
 
-CTRACER_FORCEINLINE inline thread_data& tdata()
+CC_FORCE_INLINE thread_data& tdata()
 {
     static thread_local thread_data data = {nullptr, nullptr};
     return data;
 }
 
-CTRACER_FORCEINLINE inline void trace_begin(location const* loc)
+CC_FORCE_INLINE void trace_begin(location const* loc)
 {
     auto pd = tdata().curr;
-    if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
+    if CC_CONDITION_UNLIKELY (pd >= tdata().end) // alloc new chunk
         pd = alloc_chunk();
     tdata().curr = pd + 5;
 
@@ -133,10 +109,10 @@ CTRACER_FORCEINLINE inline void trace_begin(location const* loc)
     pd[4] = core;
 }
 
-CTRACER_FORCEINLINE inline void trace_end()
+CC_FORCE_INLINE void trace_end()
 {
     auto pd = tdata().curr;
-    if (CTRACER_UNLIKELY(pd >= tdata().end)) // alloc new chunk
+    if CC_CONDITION_UNLIKELY (pd >= tdata().end) // alloc new chunk
         pd = alloc_chunk();
     tdata().curr = pd + 4;
 
@@ -157,8 +133,8 @@ CTRACER_FORCEINLINE inline void trace_end()
 
 struct raii_tracer
 {
-    CTRACER_FORCEINLINE raii_tracer(location const* loc) { trace_begin(loc); }
-    CTRACER_FORCEINLINE ~raii_tracer() { trace_end(); }
+    CC_FORCE_INLINE raii_tracer(location const* loc) { trace_begin(loc); }
+    CC_FORCE_INLINE ~raii_tracer() { trace_end(); }
 };
 } // namespace detail
 
@@ -166,14 +142,7 @@ struct raii_tracer
 struct cycler
 {
     uint64_t c_start = ct::current_cycles();
-    CTRACER_FORCEINLINE uint64_t elapsed_cycles() const { return ct::current_cycles() - c_start; }
+    CC_FORCE_INLINE uint64_t elapsed_cycles() const { return ct::current_cycles() - c_start; }
 };
 
 } // namespace ct
-
-#undef CTRACER_COLD
-#undef CTRACER_LIKELY
-#undef CTRACER_NOINLINE
-#undef CTRACER_UNLIKELY
-#undef CTRACER_LABEL_MASK
-#undef CTRACER_FORCEINLINE
