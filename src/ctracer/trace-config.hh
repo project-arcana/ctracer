@@ -12,6 +12,14 @@
 
 namespace ct
 {
+enum class print_unit
+{
+    cycles,
+    time, // automatic suffix
+    seconds,
+    milliseconds,
+};
+
 /// visitor base class, call order is:
 ///   -> nested on_trace_start .. on_trace_end
 /// traces might not have _end if they are still running
@@ -53,5 +61,5 @@ void write_speedscope_json(cc::string_view filename = "speedscope.json", size_t 
 
 /// prints summary statistics of locations, sorted by time
 /// NOTE: currently misleading for recursive locations
-void print_location_stats(trace const& t, int max_locs = 10);
+void print_location_stats(trace const& t, int max_locs = 10, print_unit unit = print_unit::time);
 } // namespace ct

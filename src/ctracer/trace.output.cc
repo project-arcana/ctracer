@@ -1,5 +1,7 @@
 #include <ctracer/trace-config.hh>
 
+#include <clean-core/format.hh>
+
 #include <algorithm>
 #include <iostream>
 #include <map>
@@ -10,6 +12,32 @@
 
 namespace ct
 {
+static cc::string format_cycles(double cycles, double to_sec_factor, print_unit unit)
+{
+    switch (unit)
+    {
+    case print_unit::cycles:
+        return cc::format("{} cc", cycles);
+    case print_unit::seconds:
+        return cc::format("{:.4} s", cycles * to_sec_factor);
+    case print_unit::milliseconds:
+        return cc::format("{:.4} ms", cycles * to_sec_factor * 1000);
+    case print_unit::time:
+    {
+        auto s = cycles * to_sec_factor;
+        if (s < 1999e-9)
+            return cc::format("{:.4} ns", s * 1e9);
+        else if (s < 1999e-6)
+            return cc::format("{:.4} us", s * 1e6);
+        else if (s < 1999e-3)
+            return cc::format("{:.4} ms", s * 1e3);
+        else
+            return cc::format("{:.4} s", s);
+    }
+    }
+    return "<invalid unit>";
+}
+
 static std::string beautify_function_name(std::string const& name)
 {
     auto p = name.rfind(')');
@@ -249,13 +277,15 @@ void write_summary_csv(cc::string_view filename)
     }
 }
 
-void print_location_stats(trace const& t, int max_locs)
+void print_location_stats(trace const& t, int max_locs, print_unit unit)
 {
     auto locs = t.compute_location_stats();
     std::sort(locs.begin(), locs.end(), [](location_stats const& a, location_stats const& b) { return a.total_cycles > b.total_cycles; });
 
     if (int(locs.size()) < max_locs)
         max_locs = int(locs.size());
+
+    auto const cc_to_sec = t.elapsed_seconds() / t.elapsed_cycles();
 
     for (auto i = 0; i < max_locs; ++i)
     {
@@ -264,7 +294,8 @@ void print_location_stats(trace const& t, int max_locs)
         auto name = std::string(l.loc->name ? l.loc->name : "");
         if (name.empty())
             name = beautify_function_name(l.loc->function);
-        std::cout << l.total_cycles << " cc (" << l.samples << "x, " << l.total_cycles / l.samples << " cc / sample) " << name << std::endl;
+        std::cout << format_cycles(l.total_cycles, cc_to_sec, unit).c_str() << " (" << l.samples << "x, "
+                  << format_cycles(l.total_cycles / l.samples, cc_to_sec, unit).c_str() << " / sample) " << name << std::endl;
     }
 }
 } // namespace ct
