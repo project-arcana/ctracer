@@ -29,7 +29,46 @@ cc::vector<event> trace::compute_events() const
     my_visitor v;
     visit(*this, v);
 
-    return v.events;
+    return cc::move(v.events);
+}
+
+cc::vector<event_scope> trace::compute_event_scopes() const
+{
+    struct my_visitor : ct::visitor
+    {
+        cc::vector<event_scope> scopes;
+
+        cc::vector<location const*> loc_stack;
+        cc::vector<uint64_t> cycle_stack;
+        cc::vector<uint32_t> cpu_stack;
+
+        void on_trace_start(ct::location const& loc, uint64_t cycles, uint32_t cpu) override
+        {
+            loc_stack.push_back(&loc);
+            cycle_stack.push_back(cycles);
+            cpu_stack.push_back(cpu);
+        }
+
+        void on_trace_end(uint64_t cycles, uint32_t cpu) override
+        {
+            auto loc = loc_stack.back();
+            auto& s = scopes.emplace_back();
+            s.loc = loc;
+            s.start_cycles = cycle_stack.back();
+            s.end_cycles = cycles;
+            s.start_cpu = cpu_stack.back();
+            s.end_cpu = cpu;
+
+            cycle_stack.pop_back();
+            cpu_stack.pop_back();
+            loc_stack.pop_back();
+        }
+    };
+
+    my_visitor v;
+    visit(*this, v);
+
+    return cc::move(v.scopes);
 }
 
 cc::vector<location_stats> trace::compute_location_stats() const

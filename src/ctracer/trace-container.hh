@@ -20,6 +20,17 @@ struct event
     bool enter = false;
 };
 
+struct event_scope
+{
+    location const* loc = nullptr;
+    uint64_t start_cycles = 0;
+    uint64_t end_cycles = 0;
+    uint32_t start_cpu = 0;
+    uint32_t end_cpu = 0;
+
+    uint64_t cycles() const { return end_cycles - start_cycles; }
+};
+
 struct location_stats
 {
     location const* loc = nullptr;
@@ -38,6 +49,9 @@ public:
 
     /// convenience function that visits this trace and converts it into event form
     cc::vector<event> compute_events() const;
+    /// convenience function that visits this trace and converts it into scoped event form
+    /// NOTE: order is a post-order tree traversal
+    cc::vector<event_scope> compute_event_scopes() const;
     /// convenience function that visits this trace and computes per-location stats
     cc::vector<location_stats> compute_location_stats() const;
 

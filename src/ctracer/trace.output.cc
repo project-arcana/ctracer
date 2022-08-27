@@ -85,6 +85,11 @@ static std::string beautify_function_name(std::string const& name)
 
 void write_speedscope_json(cc::string_view filename, size_t max_events)
 {
+    return write_speedscope_json(ct::get_current_thread_trace(), filename, max_events);
+}
+
+void write_speedscope_json(trace const& tr, cc::string_view filename, size_t max_events)
+{
     std::ofstream out(cc::string(filename).c_str());
     if (!out.good())
         return;
@@ -152,7 +157,7 @@ void write_speedscope_json(cc::string_view filename, size_t max_events)
         }
     };
     visitor v;
-    visit(ct::get_current_thread_trace(), v);
+    visit(tr, v);
     v.close_pending_actions();
 
     if (v.events.size() > max_events)
@@ -160,6 +165,8 @@ void write_speedscope_json(cc::string_view filename, size_t max_events)
         std::cerr << "Not writing speedscope json, too many events (" << v.events.size() << ")" << std::endl;
         return;
     }
+
+    auto const to_sec = tr.elapsed_seconds() / tr.elapsed_cycles();
 
     out << "{";
     out << "\"version\":\"0.0.1\",";
@@ -183,10 +190,10 @@ void write_speedscope_json(cc::string_view filename, size_t max_events)
     out << "},";
     out << "\"profiles\":[{";
     out << "\"type\":\"evented\",";
-    out << "\"name\":\"Aion Trace\",";
-    out << "\"unit\":\"none\",";
+    out << "\"name\":\"ctracer\",";
+    out << "\"unit\":\"seconds\","; // current version does not support 'none' anymore
     out << "\"startValue\":0,";
-    out << "\"endValue\":" << v.max_cycles - v.min_cycles << ",";
+    out << "\"endValue\":" << (v.max_cycles - v.min_cycles) * to_sec << ",";
     out << "\"events\":[";
     auto first = true;
     for (auto const& e : v.events)
@@ -197,7 +204,7 @@ void write_speedscope_json(cc::string_view filename, size_t max_events)
         out << "{";
         out << "\"type\":\"" << e.type << "\",";
         out << "\"frame\":" << e.frame << ",";
-        out << "\"at\":" << e.at - v.min_cycles;
+        out << "\"at\":" << (e.at - v.min_cycles) * to_sec;
         out << "}";
     }
     out << "]";
