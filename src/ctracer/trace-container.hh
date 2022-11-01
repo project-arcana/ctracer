@@ -70,6 +70,8 @@ public:
     void add_start(location const& loc, uint64_t cycles, uint32_t cpu);
     void add_end(uint64_t cycles, uint32_t cpu);
 
+    void add(trace const& t);
+
 private:
     cc::string _name;
     cc::vector<uint32_t> _data;

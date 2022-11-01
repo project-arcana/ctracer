@@ -212,6 +212,105 @@ void write_speedscope_json(trace const& tr, cc::string_view filename, size_t max
     out << "}";
 }
 
+void write_chrome_tracing_json(trace const& tr, cc::string_view filename, size_t max_events)
+{
+    std::ofstream out(cc::string(filename).c_str());
+    if (!out.good())
+        return;
+
+    struct event
+    {
+        char type;
+        int frame;
+        uint64_t at;
+        uint32_t cpu;
+    };
+    struct stack_entry
+    {
+        int frame;
+    };
+
+    struct visitor : ct::visitor
+    {
+        uint64_t min_cycles = std::numeric_limits<uint64_t>::max();
+        uint64_t max_cycles = 0;
+        uint32_t last_cpu = 0;
+        std::unordered_map<location const*, int> frames;
+        std::vector<location const*> locations;
+        std::vector<stack_entry> stack;
+        std::vector<event> events;
+
+        int frame_of(location const& loc)
+        {
+            auto it = frames.find(&loc);
+            if (it != frames.end())
+                return it->second;
+
+            auto f = int(frames.size());
+            frames[&loc] = f;
+            locations.push_back(&loc);
+            return f;
+        }
+
+        void on_trace_start(ct::location const& loc, uint64_t cycles, uint32_t cpu) override
+        {
+            last_cpu = cpu;
+            min_cycles = std::min(min_cycles, cycles);
+            max_cycles = std::max(max_cycles, cycles);
+
+            auto f = frame_of(loc);
+            events.push_back({'B', f, cycles, cpu});
+
+            stack.push_back({f});
+        }
+        void on_trace_end(uint64_t cycles, uint32_t cpu) override
+        {
+            last_cpu = cpu;
+            min_cycles = std::min(min_cycles, cycles);
+            max_cycles = std::max(max_cycles, cycles);
+
+            auto se = stack.back();
+            stack.pop_back();
+
+            events.push_back({'E', se.frame, cycles, last_cpu});
+        }
+
+        void close_pending_actions()
+        {
+            while (!stack.empty())
+                on_trace_end(max_cycles, last_cpu);
+        }
+    };
+    visitor v;
+    visit(tr, v);
+    v.close_pending_actions();
+
+    if (v.events.size() > max_events)
+    {
+        std::cerr << "Not writing speedscope json, too many events (" << v.events.size() << ")" << std::endl;
+        return;
+    }
+
+    double time_factor = 1.;
+    if (tr.elapsed_seconds() > 0)
+        time_factor = 1e6 * tr.elapsed_seconds() / tr.elapsed_cycles();
+
+    cc::string s;
+    s += "[";
+    for (auto const& e : v.events)
+    {
+        s += cc::format("{{\"name\": \"%s\", \"cat\": \"PERF\", \"ph\": \"%s\", \"pid\": 0, \"tid\": %s, \"ts\": %s}},\n", v.locations[e.frame]->name,
+                        e.type, e.cpu, (e.at - v.min_cycles) * time_factor);
+    }
+    if (s.ends_with(",\n"))
+    {
+        s.pop_back();
+        s.pop_back();
+    }
+    s += "]";
+    out << s.c_str();
+}
+
 void write_summary_csv(cc::string_view filename)
 {
     std::ofstream out(cc::string(filename).c_str());

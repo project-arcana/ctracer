@@ -59,6 +59,9 @@ void write_summary_csv(cc::string_view filename);
 /// see https://github.com/jlfwong/speedscope/wiki/Importing-from-custom-sources
 void write_speedscope_json(cc::string_view filename = "speedscope.json", size_t max_events = 1'000'000);
 void write_speedscope_json(trace const& t, cc::string_view filename = "speedscope.json", size_t max_events = 1'000'000);
+/// use about:tracing
+/// or https://ui.perfetto.dev/
+void write_chrome_tracing_json(trace const& t, cc::string_view filename = "chrome-tracing.json", size_t max_events = 1'000'000);
 
 /// prints summary statistics of locations, sorted by time
 /// NOTE: currently misleading for recursive locations

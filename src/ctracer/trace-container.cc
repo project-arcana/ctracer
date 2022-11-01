@@ -132,6 +132,8 @@ void trace::add_end(uint64_t cycles, uint32_t cpu)
     _data.push_back(cpu);
 }
 
+void trace::add(const trace& t) { _data.push_back_range(t._data); }
+
 trace ct::filter_subscope(trace const& t, cc::function_ref<bool(location const&)> predicate)
 {
     auto res = trace(t.name(), {}, t.time_start(), t.time_end(), t.cycles_start(), t.cycles_end());
