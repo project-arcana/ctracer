@@ -62,6 +62,8 @@ public:
     float elapsed_seconds() const { return std::chrono::duration<float>(_time_end - _time_start).count(); }
     uint64_t elapsed_cycles() const { return _cycles_end - _cycles_start; }
 
+    bool empty() const { return _data.empty(); }
+
     // builder
 public:
     trace() = default;
@@ -87,9 +89,12 @@ private:
     friend void visit(trace const& t, visitor& v);
 };
 
-/// retruns a filtered version of the given trace
+/// returns a filtered version of the given trace
 /// the new trace only contains samples where predicate was true for the sample or any parent
 /// (e.g. useful to restrict to subscopes)
 /// NOTE: time/cycles start/end is the same as input
 trace filter_subscope(trace const& t, cc::function_ref<bool(location const&)> predicate);
+
+/// returns a new trace where all cpu values are replaced with a given value
+trace map_cpu(trace const& t, uint32_t new_cpu);
 }

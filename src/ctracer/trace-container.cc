@@ -171,3 +171,25 @@ trace ct::filter_subscope(trace const& t, cc::function_ref<bool(location const&)
 
     return res;
 }
+
+trace ct::map_cpu(const trace& t, uint32_t new_cpu)
+{
+    auto res = trace(t.name(), {}, t.time_start(), t.time_end(), t.cycles_start(), t.cycles_end());
+
+    struct my_visitor : ct::visitor
+    {
+        trace& res;
+        uint32_t new_cpu;
+
+        my_visitor(trace& r, uint32_t new_cpu) : res(r), new_cpu(new_cpu) {}
+
+        void on_trace_start(ct::location const& loc, uint64_t cycles, uint32_t) override { res.add_start(loc, cycles, new_cpu); }
+
+        void on_trace_end(uint64_t cycles, uint32_t) override { res.add_end(cycles, new_cpu); }
+    };
+
+    auto v = my_visitor{res, new_cpu};
+    visit(t, v);
+
+    return res;
+}
