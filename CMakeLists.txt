@@ -1,25 +1,16 @@
 cmake_minimum_required(VERSION 3.0)
 project(CTracer)
 
-include(cmake/UnityBuild.cmake)
-include(cmake/SourceGroup.cmake)
+if (NOT TARGET clean-core)
+    message(FATAL_ERROR "[${PROJECT_NAME}] clean-core must be available")
+endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-option(CTRACER_ENABLE_UNITY_BUILD "If enabled, compiles this library as a single compilation unit" ON)
+file(GLOB_RECURSE SOURCES "src/*.cc")
+file(GLOB_RECURSE HEADERS "src/*.hh")
 
-file(GLOB_RECURSE SOURCES
-    "src/*.cc"
-    "src/*.hh"
-)
-
-arcana_source_group(SOURCES)
-
-if (CTRACER_ENABLE_UNITY_BUILD)
-    arcana_enable_unity_build(clean-core SOURCES 100 cc)
-endif()
-
-add_library(ctracer STATIC ${SOURCES})
+arcana_add_library(CTRACER ctracer SOURCES HEADERS)
 
 target_include_directories(ctracer PUBLIC "src")
 
