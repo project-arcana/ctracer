@@ -47,7 +47,7 @@ thread_local struct thread_info
             detail::mark_as_orphaned(*root_scope);
 
             _global.mutex.lock();
-            _global.finished_threads.emplace_back(move(root_scope));
+            _global.finished_threads.emplace_back(std::move(root_scope));
             _global.mutex.unlock();
         }
     }
