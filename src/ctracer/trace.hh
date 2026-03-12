@@ -61,6 +61,18 @@ struct location
 
 #ifdef _WIN32
 CC_FORCE_INLINE uint64_t current_cycles() { return __rdtsc(); }
+#elif defined(__APPLE__) && defined(__MACH__)
+CC_FORCE_INLINE uint64_t current_cycles()
+{
+    // TODO: this might require additionaly information to compute seconds from the count
+    uint64_t v;
+    asm volatile("isb\n" // manual barrier on ARM
+                 "mrs %0, cntvct_el0\n"
+                 : "=r"(v)
+                 :
+                 : "memory");
+    return v;
+}
 #else //  Linux/GCC
 CC_FORCE_INLINE uint64_t current_cycles()
 {
@@ -102,7 +114,11 @@ CC_FORCE_INLINE void trace_begin(location const* loc)
     *(int64_t*)(pd + 2) = cc;
 #else
     unsigned int lo, hi;
+#if defined(CC_ARCH_X86_64)
     __asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi), "=c"(core));
+#elif defined(CC_ARCH_ARM64)
+    // todo
+#endif
     pd[2] = lo;
     pd[3] = hi;
 #endif
@@ -123,7 +139,11 @@ CC_FORCE_INLINE void trace_end()
     *(int64_t*)(pd + 1) = cc;
 #else
     unsigned int lo, hi;
+#if defined(CC_ARCH_X86_64)
     __asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi), "=c"(core));
+#elif defined(CC_ARCH_ARM64)
+    // todo
+#endif
     pd[0] = CTRACER_END_VALUE;
     pd[1] = lo;
     pd[2] = hi;
