@@ -4,7 +4,12 @@
 
 #include <clean-core/macros.hh>
 
-#ifdef _MSC_VER
+#if defined(CC_OS_APPLE) && defined(CC_ARCH_ARM64)
+#include <mach/mach.h>
+#include <pthread.h>
+#endif
+
+#ifdef CC_COMPILER_MSVC
 #include <intrin.h>
 #endif
 
@@ -59,28 +64,31 @@ struct location
     int line;
 };
 
-#ifdef _WIN32
-CC_FORCE_INLINE uint64_t current_cycles() { return __rdtsc(); }
-#elif defined(__APPLE__) && defined(__MACH__)
+
 CC_FORCE_INLINE uint64_t current_cycles()
 {
-    // TODO: this might require additionaly information to compute seconds from the count
+#ifdef CC_ARCH_X86_64
+
+#ifdef CC_COMPILER_MSVC
+    return __rdtsc();
+#else
+    unsigned int lo, hi;
+    __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+    return ((uint64_t)hi << 32) | lo;
+#endif
+
+#elif defined(CC_ARCH_ARM64)
     uint64_t v;
-    asm volatile("isb\n" // manual barrier on ARM
-                 "mrs %0, cntvct_el0\n"
+    asm volatile("isb\n"                // manual barrier
+                 "mrs %0, cntvct_el0\n" // CouNTer Virtual Count, Self-Synchronized, Exception Level 0
                  : "=r"(v)
                  :
                  : "memory");
     return v;
-}
-#else //  Linux/GCC
-CC_FORCE_INLINE uint64_t current_cycles()
-{
-    unsigned int lo, hi;
-    __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
-    return ((uint64_t)hi << 32) | lo;
-}
+#else
+#error "unsupported architecture"
 #endif
+}
 
 namespace detail
 {
@@ -101,52 +109,73 @@ CC_FORCE_INLINE thread_data& tdata()
 
 CC_FORCE_INLINE void trace_begin(location const* loc)
 {
-    auto pd = tdata().curr;
+    auto* pd = tdata().curr;
     if CC_CONDITION_UNLIKELY (pd >= tdata().end) // alloc new chunk
         pd = alloc_chunk();
     tdata().curr = pd + 5;
 
     *(location const**)pd = loc;
 
-    unsigned int core;
-#ifdef _MSC_VER
+    unsigned int core = 0;
+
+#ifdef CC_ARCH_X86_X64
+#ifdef CC_COMPILER_MSVC
     int64_t cc = __rdtscp(&core);
     *(int64_t*)(pd + 2) = cc;
-#else
+#else // clang / gcc
     unsigned int lo, hi;
-#if defined(CC_ARCH_X86_64)
     __asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi), "=c"(core));
-#elif defined(CC_ARCH_ARM64)
-    // todo
-#endif
     pd[2] = lo;
     pd[3] = hi;
+#endif
+#elif defined(CC_ARCH_ARM64)
+    uint64_t virtualCount;
+    asm volatile("isb\n"                // manual barrier
+                 "mrs %0, cntvct_el0\n" // CouNTer Virtual Count, Self-Synchronized, Exception Level 0
+                 : "=r"(virtualCount)
+                 :
+                 : "memory");
+    *(uint64_t*)(pd + 2) = virtualCount;
+    core = (uint32_t)mach_thread_self();
+#else
+#error "unsupported architecture"
 #endif
     pd[4] = core;
 }
 
 CC_FORCE_INLINE void trace_end()
 {
-    auto pd = tdata().curr;
+    auto* pd = tdata().curr;
     if CC_CONDITION_UNLIKELY (pd >= tdata().end) // alloc new chunk
         pd = alloc_chunk();
     tdata().curr = pd + 4;
 
+    pd[0] = CTRACER_END_VALUE;
+
     unsigned int core;
-#ifdef _MSC_VER
+#ifdef CC_ARCH_X86_X64
+#ifdef CC_COMPILER_MSVC
     int64_t cc = __rdtscp(&core);
-    pd[0] = CTRACER_END_VALUE;
     *(int64_t*)(pd + 1) = cc;
-#else
+
+#else // clang / gcc
     unsigned int lo, hi;
-#if defined(CC_ARCH_X86_64)
     __asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi), "=c"(core));
-#elif defined(CC_ARCH_ARM64)
-    // todo
-#endif
-    pd[0] = CTRACER_END_VALUE;
     pd[1] = lo;
     pd[2] = hi;
+#endif
+
+#elif defined(CC_ARCH_ARM64)
+    uint64_t virtualCount;
+    asm volatile("isb\n"                // manual barrier
+                 "mrs %0, cntvct_el0\n" // CouNTer Virtual Count, Self-Synchronized, Exception Level 0
+                 : "=r"(virtualCount)
+                 :
+                 : "memory");
+    *(uint64_t*)(pd + 2) = virtualCount;
+    core = (uint32_t)mach_thread_self();
+#else
+#error "unsupported architecture"
 #endif
     pd[3] = core;
 }
@@ -162,7 +191,7 @@ struct raii_tracer
 struct cycler
 {
     uint64_t c_start = ct::current_cycles();
-    CC_FORCE_INLINE uint64_t elapsed_cycles() const { return ct::current_cycles() - c_start; }
+    [[nodiscard]] CC_FORCE_INLINE uint64_t elapsed_cycles() const { return ct::current_cycles() - c_start; }
 };
 
 } // namespace ct
