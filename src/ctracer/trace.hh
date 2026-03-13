@@ -172,7 +172,7 @@ CC_FORCE_INLINE void trace_end()
                  : "=r"(virtualCount)
                  :
                  : "memory");
-    *(uint64_t*)(pd + 2) = virtualCount;
+    *(uint64_t*)(pd + 1) = virtualCount;
     core = (uint32_t)mach_thread_self();
 #else
 #error "unsupported architecture"
