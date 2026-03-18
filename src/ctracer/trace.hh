@@ -118,7 +118,7 @@ CC_FORCE_INLINE void trace_begin(location const* loc)
 
     unsigned int core = 0;
 
-#ifdef CC_ARCH_X86_X64
+#ifdef CC_ARCH_X86_64
 #ifdef CC_COMPILER_MSVC
     int64_t cc = __rdtscp(&core);
     *(int64_t*)(pd + 2) = cc;
@@ -153,7 +153,7 @@ CC_FORCE_INLINE void trace_end()
     pd[0] = CTRACER_END_VALUE;
 
     unsigned int core;
-#ifdef CC_ARCH_X86_X64
+#ifdef CC_ARCH_X86_64
 #ifdef CC_COMPILER_MSVC
     int64_t cc = __rdtscp(&core);
     *(int64_t*)(pd + 1) = cc;
