@@ -4,9 +4,11 @@
 
 #include <clean-core/macros.hh>
 
-#if defined(CC_OS_APPLE) && defined(CC_ARCH_ARM64)
-#include <mach/mach.h>
+#if defined(CC_ARCH_ARM64)
 #include <pthread.h>
+#if defined(CC_OS_APPLE)
+#include <mach/mach.h>
+#endif
 #endif
 
 #ifdef CC_COMPILER_MSVC
@@ -136,7 +138,11 @@ CC_FORCE_INLINE void trace_begin(location const* loc)
                  :
                  : "memory");
     *(uint64_t*)(pd + 2) = virtualCount;
+#ifdef CC_OS_APPLE
     core = (uint32_t)mach_thread_self();
+#else
+    core = (uint32_t)pthread_self();
+#endif
 #else
 #error "unsupported architecture"
 #endif
@@ -173,7 +179,11 @@ CC_FORCE_INLINE void trace_end()
                  :
                  : "memory");
     *(uint64_t*)(pd + 1) = virtualCount;
+#ifdef CC_OS_APPLE
     core = (uint32_t)mach_thread_self();
+#else
+    core = (uint32_t)pthread_self();
+#endif
 #else
 #error "unsupported architecture"
 #endif
